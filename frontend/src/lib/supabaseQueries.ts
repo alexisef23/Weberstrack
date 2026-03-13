@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import type { Branch, BreadType, Order, OrderItem, OrderStatus, User } from '../types/webertrack';
+import type { Branch, BreadType, Order, OrderItem, OrderStatus, WeberUser } from '../types/webertrack';
 
 // ─── Profile types ────────────────────────────────────────────────────────────
 export interface ProfileRow {
@@ -9,6 +9,13 @@ export interface ProfileRow {
   role: 'PROMOTOR' | 'SUPERVISOR' | 'SUPERADMIN' | 'AUDITOR';
   supervisor_id?: string | null;
   assigned_branch_ids?: string[];
+}
+
+export interface PromoterProfile {
+  id: string;
+  name: string;
+  email: string;
+  supervisor_id?: string | null;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -24,7 +31,7 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<WeberUser | null> {
   if (!supabase) return null;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
@@ -56,11 +63,11 @@ export async function updateProfileSupervisor(promoterId: string, supervisorId: 
   if (error) throw error;
 }
 
-export async function fetchPromotersBySupervisor(supervisorId: string): Promise<ProfileRow[]> {
+export async function fetchPromotersBySupervisor(supervisorId: string): Promise<PromoterProfile[]> {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, name, email, role, supervisor_id, assigned_branch_ids')
+    .select('id, name, email, supervisor_id')
     .eq('supervisor_id', supervisorId)
     .eq('role', 'PROMOTOR');
   if (error) throw error;

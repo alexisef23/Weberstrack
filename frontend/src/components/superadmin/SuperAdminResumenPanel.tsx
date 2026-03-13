@@ -2,35 +2,17 @@ import { useMemo, useState, useEffect } from 'react';
 import { Card } from '../ui/core';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, AreaChart, Area,
+  PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { useWeberData } from '../../context/WeberDataContext';
 import { isSupabaseConfigured } from '../../lib/supabase';
 import * as sq from '../../lib/supabaseQueries';
 import type { ProfileRow } from '../../lib/supabaseQueries';
-import { Building2, Package, Users, ShoppingBag, TrendingUp } from 'lucide-react';
-import { subDays, format } from 'date-fns';
+import { BarChart3, PieChart as PieChartIcon, Users, Building2, Package, ShoppingCart } from 'lucide-react';
 
-const PALETTE = ['#064d80','#0c90e0','#36adf6','#7cc9fb','#e8b930','#16a34a'];
+const CHART_COLORS = ['#0c4a6e', '#0ea5e9', '#0369a1', '#7dd3fc', '#0e7490'];
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string; color?: string }>; label?: string }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="glass rounded-xl p-3 text-sm">
-      {label && <p className="font-700 text-[var(--text)] mb-1.5">{label}</p>}
-      {payload.map((p, i) => (
-        <div key={i} className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full" style={{ background: p.color }} />
-            <span className="text-[var(--text-3)]">{p.name}</span>
-          </div>
-          <span className="font-600 mono text-[var(--text)]">{p.value}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
+/** Resumen con gráficas para SuperAdmin — layout controlado */
 export function SuperAdminResumenPanel() {
   const { branches, breadTypes, orders } = useWeberData();
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
@@ -41,162 +23,138 @@ export function SuperAdminResumenPanel() {
     }
   }, []);
 
-  const stats = useMemo(() => {
+  const { barByRole, barByStatus, pieByProductStatus } = useMemo(() => {
     const roleCounts = profiles.reduce((acc, p) => {
-      const r = p.role || 'Sin rol';
+      const r = (p.role as string) || 'Sin rol';
       acc[r] = (acc[r] ?? 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const barByRole = Object.entries(roleCounts).map(([name, Usuarios]) => ({ name, Usuarios }));
+    const barByRole = Object.entries(roleCounts).map(([name, value]) => ({ name, Usuarios: value }));
 
     const statusCounts = orders.reduce((acc, o) => {
       acc[o.status] = (acc[o.status] ?? 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const barByStatus = [
-      { name: 'Pendientes', Pedidos: statusCounts['PENDING'] ?? 0 },
-      { name: 'Aprobados',  Pedidos: statusCounts['APPROVED'] ?? 0 },
-      { name: 'Rechazados', Pedidos: statusCounts['REJECTED'] ?? 0 },
-    ].filter(d => d.Pedidos > 0);
+    const barByStatus = Object.entries(statusCounts).map(([name, value]) => ({ name, Pedidos: value }));
 
     const productByStatus = breadTypes.reduce((acc, b) => {
       acc[b.status] = (acc[b.status] ?? 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const pieProducts = [
-      { name: 'Disponible', value: productByStatus['available'] ?? 0, fill: '#16a34a' },
-      { name: 'Agotado',    value: productByStatus['sold_out'] ?? 0,  fill: '#f59e0b' },
-      { name: 'Descont.',   value: productByStatus['discontinued'] ?? 0, fill: '#94a3b8' },
-    ].filter(d => d.value > 0);
+    const pieByProductStatus = Object.entries(productByStatus).map(([name, value], i) => ({
+      name: name === 'available' ? 'Disponible' : name === 'sold_out' ? 'Agotado' : name === 'discontinued' ? 'Descontinuado' : name,
+      value,
+      fill: CHART_COLORS[i % CHART_COLORS.length],
+    }));
 
-    const trend = Array.from({ length: 7 }, (_, i) => {
-      const d = subDays(new Date(), 6 - i);
-      const key = format(d, 'yyyy-MM-dd');
-      const dayOrds = orders.filter(o => o.created_at?.startsWith(key));
-      return {
-        day: format(d, 'dd/MM'),
-        pedidos: dayOrds.length,
-        unidades: dayOrds.reduce((s, o) => s + o.items.reduce((a, i) => a + i.actual_qty, 0), 0),
-      };
-    });
-
-    return { barByRole, barByStatus, pieProducts, trend };
+    return {
+      barByRole: barByRole.length ? barByRole : [{ name: 'Sin datos', Usuarios: 0 }],
+      barByStatus: barByStatus.length ? barByStatus : [{ name: 'Sin pedidos', Pedidos: 0 }],
+      pieByProductStatus: pieByProductStatus.length ? pieByProductStatus : [{ name: 'Sin productos', value: 1, fill: '#94a3b8' }],
+    };
   }, [profiles, orders, breadTypes]);
 
   const kpis = [
-    { label: 'Sucursales', value: branches.length, icon: Building2, color: '#064d80' },
-    { label: 'Productos',  value: breadTypes.length, icon: Package,  color: '#0c90e0' },
-    { label: 'Usuarios',   value: profiles.length || '—', icon: Users, color: '#e8b930' },
-    { label: 'Pedidos',    value: orders.length, icon: ShoppingBag, color: '#16a34a' },
+    { label: 'Sucursales', value: branches.length, icon: Building2, color: 'text-primary', bg: 'bg-primary/10' },
+    { label: 'Productos', value: breadTypes.length, icon: Package, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+    { label: 'Usuarios', value: profiles.length, icon: Users, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+    { label: 'Pedidos', value: orders.length, icon: ShoppingCart, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6 overflow-x-hidden">
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {kpis.map(k => (
-          <div key={k.label} className="glass rounded-2xl p-4">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: k.color + '18' }}>
-              <k.icon size={18} style={{ color: k.color }} />
+          <Card key={k.label} className="p-4 overflow-hidden">
+            <div className="flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg ${k.bg} flex items-center justify-center shrink-0`}>
+                <k.icon size={18} className={k.color} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-slate-500 truncate">{k.label}</p>
+                <p className={`text-xl font-bold mt-0.5 ${k.color}`}>{k.value}</p>
+              </div>
             </div>
-            <p className="text-2xl font-bold mono" style={{ color: k.color }}>{k.value}</p>
-            <p className="text-xs text-[var(--text-3)] mt-0.5">{k.label}</p>
-          </div>
+          </Card>
         ))}
       </div>
 
-      {/* Charts grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Roles bar */}
-        <Card>
-          <p className="font-bold text-[var(--text)] mb-4" style={{ fontFamily: 'Syne,sans-serif' }}>Usuarios por rol</p>
-          <div className="h-52">
-            {stats.barByRole.some(d => d.Usuarios > 0) ? (
+      {/* Gráficas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card className="p-4 overflow-hidden">
+          <h4 className="font-semibold text-primary mb-4 text-sm flex items-center gap-2">
+            <BarChart3 size={16} /> Usuarios por rol
+          </h4>
+          <div className="w-full" style={{ height: 220 }}>
+            {barByRole.some(d => d.Usuarios > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.barByRole}>
+                <BarChart data={barByRole} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="Usuarios" radius={[3,3,0,0]}>
-                    {stats.barByRole.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
-                  </Bar>
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} width={30} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="Usuarios" fill="#0c4a6e" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-[var(--text-4)]">{isSupabaseConfigured() ? 'Sin usuarios' : 'Conecta Supabase'}</p>
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">
+                {isSupabaseConfigured() ? 'No hay usuarios' : 'Conecta Supabase para ver usuarios'}
               </div>
             )}
           </div>
         </Card>
 
-        {/* Status bar */}
-        <Card>
-          <p className="font-bold text-[var(--text)] mb-4" style={{ fontFamily: 'Syne,sans-serif' }}>Pedidos por estado</p>
-          <div className="h-52">
-            {stats.barByStatus.length > 0 ? (
+        <Card className="p-4 overflow-hidden">
+          <h4 className="font-semibold text-primary mb-4 text-sm flex items-center gap-2">
+            <BarChart3 size={16} /> Pedidos por estado
+          </h4>
+          <div className="w-full" style={{ height: 220 }}>
+            {barByStatus.some(d => d.Pedidos > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.barByStatus}>
+                <BarChart data={barByStatus} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-                  <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="Pedidos" radius={[3,3,0,0]}>
-                    <Cell fill="#f59e0b" /><Cell fill="#16a34a" /><Cell fill="#ef4444" />
-                  </Bar>
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} width={30} />
+                  <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                  <Bar dataKey="Pedidos" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-[var(--text-4)]">Sin pedidos</p>
-              </div>
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm">No hay pedidos</div>
             )}
           </div>
         </Card>
       </div>
 
-      {/* Product status pie + trend */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <Card>
-          <p className="font-bold text-[var(--text)] mb-4" style={{ fontFamily: 'Syne,sans-serif' }}>Estado de productos</p>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={stats.pieProducts.length ? stats.pieProducts : [{ name: 'Sin datos', value: 1, fill: 'var(--border)' }]}
-                  cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
-                  {(stats.pieProducts.length ? stats.pieProducts : [{ fill: 'var(--border)' }]).map((e, i) => <Cell key={i} fill={e.fill} />)}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend formatter={(v) => <span className="text-xs text-[var(--text-2)]">{v}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-
-        <Card>
-          <p className="font-bold text-[var(--text)] mb-4 flex items-center gap-2" style={{ fontFamily: 'Syne,sans-serif' }}>
-            <TrendingUp size={16} className="text-[var(--primary)]" /> Actividad 7 días
-          </p>
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.trend}>
-                <defs>
-                  <linearGradient id="saGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#064d80" stopOpacity={.25} />
-                    <stop offset="95%" stopColor="#064d80" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-                <YAxis tick={{ fontSize: 11, fill: 'var(--text-3)' }} />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="pedidos" name="Pedidos" stroke="#064d80" strokeWidth={2.5} fill="url(#saGrad)" dot={{ r: 3, fill: '#064d80' }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Card>
-      </div>
+      <Card className="p-4 overflow-hidden">
+        <h4 className="font-semibold text-primary mb-4 text-sm flex items-center gap-2">
+          <PieChartIcon size={16} /> Productos por estado
+        </h4>
+        <div className="w-full" style={{ height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <Pie
+                data={pieByProductStatus}
+                cx="50%"
+                cy="50%"
+                innerRadius={40}
+                outerRadius={65}
+                paddingAngle={2}
+                dataKey="value"
+                label={({ name, value }) => `${name}: ${value}`}
+                labelLine={false}
+              >
+                {pieByProductStatus.map((_, i) => (
+                  <Cell key={i} fill={pieByProductStatus[i].fill} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
     </div>
   );
 }
