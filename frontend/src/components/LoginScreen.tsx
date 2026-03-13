@@ -11,10 +11,10 @@ const ROLE_ICONS = {
 };
 
 const ROLE_GRADIENTS: Record<string, string> = {
-  PROMOTOR:   'from-[#064d80] to-[#0c90e0]',
-  SUPERVISOR: 'from-[#0c90e0] to-[#36adf6]',
-  SUPERADMIN: 'from-[#c9980a] to-[#e8b930]',
-  AUDITOR:    'from-[#15803d] to-[#4ade80]',
+  PROMOTOR:   'from-[#c1272d] to-[#e84d50]',
+  SUPERVISOR: 'from-[#003d7a] to-[#1e5a96]',
+  SUPERADMIN: 'from-[#e8b930] to-[#f5d547]',
+  AUDITOR:    'from-[#2d0d0f] to-[#6b1317]',
 };
 
 export function LoginScreen() {
@@ -23,15 +23,26 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-5 relative overflow-hidden">
       {/* Decorative blobs */}
-      <div className="absolute top-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-20" style={{ background: 'var(--brand-500)', transform: 'translate(-50%, -50%)' }} />
-      <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full blur-3xl opacity-15" style={{ background: 'var(--gold-500)', transform: 'translate(40%, 40%)' }} />
+      <div className="absolute top-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-20" style={{ background: '#c1272d', transform: 'translate(-50%, -50%)' }} />
+      <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full blur-3xl opacity-15" style={{ background: '#e8b930', transform: 'translate(40%, 40%)' }} />
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4" style={{ background: 'linear-gradient(135deg, var(--brand-800), var(--brand-500))' }}>
-            <img src="/webers-logo.png" alt="Weber's" className="w-10 h-10 object-contain" onError={(e) => { e.currentTarget.style.display='none'; (e.currentTarget.nextSibling as HTMLElement).style.display='flex'; }} />
-            <span className="text-white font-black text-xl hidden items-center">W</span>
+          <div className="inline-flex items-center justify-center mb-6">
+            <img 
+              src="/webers-logo.png" 
+              alt="Weber's Bread" 
+              className="h-20 object-contain drop-shadow-lg"
+              onError={(e) => { 
+                e.currentTarget.style.display='none'; 
+                const fallback = e.currentTarget.nextSibling as HTMLElement;
+                if (fallback) fallback.style.display='flex';
+              }} 
+            />
+            <div className="hidden items-center justify-center w-20 h-20 rounded-2xl" style={{ background: 'linear-gradient(135deg, #8b191d, #c1272d)' }}>
+              <span className="text-white font-black text-3xl">W</span>
+            </div>
           </div>
           <h1 className="text-3xl font-black text-[var(--text)]" style={{ fontFamily: 'Syne,sans-serif' }}>
             Weber<span className="text-gradient">Track</span>
