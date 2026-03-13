@@ -76,6 +76,7 @@ interface LiveMapProps {
   mode?: 'supervisor' | 'promotor' | 'auditor';
   currentPromotorId?: string;
   className?: string;
+  promoterLocations?: Record<string, { lat: number; lng: number; name: string }>;
 }
 
 export function LiveMap({ orders, branches = [], teamBranches = [], promoters, mode = 'supervisor', currentPromotorId, className }: LiveMapProps) {
@@ -167,44 +168,75 @@ export function LiveMap({ orders, branches = [], teamBranches = [], promoters, m
 
     // Draw routes if enabled
     if (showRoutes && coords.length > 1 && (mode === 'supervisor' || mode === 'promotor')) {
-      // Sort by lat to simulate a logical route
       const sorted = [...coords].sort((a, b) => a.lng - b.lng);
       const points = sorted.map(c => [c.lat, c.lng] as [number, number]);
 
-      // Shadow line
-      const shadow = L.polyline(points, { color: 'rgba(0,0,0,.15)', weight: 6, opacity: 1, smoothFactor: 2 }).addTo(map);
-      routeLinesRef.current.push(shadow);
+      const drawRoute = (routeCoords: [number, number][]) => {
+        if (!map || routeCoords.length === 0) return;
+        
+        // Shadow line
+        const shadow = L.polyline(routeCoords, { color: 'rgba(0,0,0,.15)', weight: 6, opacity: 1, smoothFactor: 3 }).addTo(map);
+        routeLinesRef.current.push(shadow);
 
-      // Main route line
-      const routeLine = L.polyline(points, {
-        color: '#0c90e0',
-        weight: 3.5,
-        opacity: .85,
-        dashArray: '10, 6',
-        smoothFactor: 2,
-      }).addTo(map);
-      routeLinesRef.current.push(routeLine);
+        // Main route line - azul
+        const routeLine = L.polyline(routeCoords, {
+          color: '#0c90e0',
+          weight: 3.5,
+          opacity: .85,
+          smoothFactor: 3,
+        }).addTo(map);
+        routeLinesRef.current.push(routeLine);
 
-      // Direction arrows
-      if (points.length > 1) {
-        for (let i = 0; i < points.length - 1; i++) {
-          const mid = [
-            (points[i][0] + points[i+1][0]) / 2,
-            (points[i][1] + points[i+1][1]) / 2,
-          ] as [number, number];
-          const arrowIcon = L.divIcon({
-            className: '',
-            iconSize: [12, 12],
-            iconAnchor: [6, 6],
-            html: `<div style="
-              width:12px;height:12px;background:#0c90e0;border-radius:50%;
-              border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.3);
-            "></div>`,
-          });
-          const dot = L.marker(mid, { icon: arrowIcon }).addTo(map);
-          markersRef.current.push(dot);
+        // Mark start and end
+        const startIcon = L.divIcon({
+          className: '',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          html: `<div style="width:28px;height:28px;background:#16a34a;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.3)">1</div>`
+        });
+        const endIcon = L.divIcon({
+          className: '',
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+          html: `<div style="width:28px;height:28px;background:#dc2626;border:3px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:white;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.3)">${sorted.length}</div>`
+        });
+        L.marker(routeCoords[0], { icon: startIcon }).addTo(map);
+        L.marker(routeCoords[routeCoords.length - 1], { icon: endIcon }).addTo(map);
+      };
+
+      // Try real route from OSRM (free routing engine)
+      const fetchOSRMRoute = async () => {
+        try {
+          if (sorted.length < 2) {
+            drawRoute(points);
+            return;
+          }
+          
+          // Format: lng,lat;lng,lat;...
+          const coordinates = sorted.map(c => `${c.lng},${c.lat}`).join(';');
+          const response = await Promise.race([
+            fetch(
+              `https://router.project-osrm.org/route/v1/driving/${coordinates}?geometries=geojson&overview=full`
+            ),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('OSRM timeout')), 5000))
+          ]) as Response;
+          
+          if (!response.ok) throw new Error(`OSRM error: ${response.status}`);
+          
+          const data = await response.json();
+          if (data.routes?.[0]?.geometry?.coordinates) {
+            const routeCoords = data.routes[0].geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as [number, number]);
+            drawRoute(routeCoords);
+          } else {
+            drawRoute(points);
+          }
+        } catch (err) {
+          console.warn('OSRM unavailable, using simple route:', err);
+          drawRoute(points);
         }
-      }
+      };
+
+      fetchOSRMRoute();
     }
 
     // Fit bounds
@@ -288,15 +320,15 @@ export function LiveMap({ orders, branches = [], teamBranches = [], promoters, m
             <Maximize2 size={15} />
           </button>
         </div>
-      </div>
 
-      {/* Legend */}
-      <div className="absolute bottom-3 left-3 z-20 glass rounded-xl px-3 py-2">
-        <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />Pendiente</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]" />Aprobado</div>
-          <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#064d80]" />Sin pedido</div>
-          {userLocation && <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#0c90e0]" />Tú</div>}
+        {/* Legend */}
+        <div className="glass rounded-xl px-3 py-2">
+          <div className="flex flex-col gap-2 text-xs">
+            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />Pendiente</div>
+            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#16a34a]" />Aprobado</div>
+            <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#064d80]" />Sin pedido</div>
+            {userLocation && <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#0c90e0]" />Tú</div>}
+          </div>
         </div>
       </div>
 

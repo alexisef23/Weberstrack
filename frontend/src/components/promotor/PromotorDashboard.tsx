@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useWeberData } from '../../context/WeberDataContext';
 import { Button, Card, Input, StatusBadge } from '../ui/core';
-import { ChatbotFAB } from '../chatbot/ChatbotFAB';
 import { OrderCart } from './OrderCart';
 import { OrderForm } from './OrderForm';
 import { PromotorMetricsPanel } from './PromotorMetricsPanel';
@@ -226,8 +225,6 @@ export function PromotorDashboard() {
           <PromotorMetricsPanel orders={myOrders} />
         )}
       </main>
-
-      <ChatbotFAB orders={myOrders} />
     </div>
   );
 }

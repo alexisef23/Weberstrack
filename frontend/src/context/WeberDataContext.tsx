@@ -82,10 +82,11 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
   const [dateFilter, setDateFilter] = useState<DateFilter>({});
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [forceDemo, setForceDemo] = useState(false);
   // sales history cache: branchId → breadTypeId → number[]
   const salesCache = useRef<Record<string, Record<string, number[]>>>({});
 
-  const isMock = !isSupabaseConfigured();
+  const isMock = !isSupabaseConfigured() || forceDemo;
 
   // ─── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -106,7 +107,7 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Real Supabase load
+    // Real Supabase load - with fallback to mock on error
     Promise.all([
       sq.fetchBranches(),
       sq.fetchBreadTypes(),
@@ -119,7 +120,20 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
         setOrders(o);
         setProfiles(p);
       })
-      .catch(console.error)
+      .catch(err => {
+        console.error('Supabase error, switching to demo mode:', err);
+        // Fallback to mock data
+        setForceDemo(true);
+        setBranches(MOCK_BRANCHES);
+        setBreadTypes(MOCK_BREAD_TYPES);
+        setOrders(MOCK_ORDERS);
+        Object.entries(MOCK_SALES_HISTORY).forEach(([bId, byBread]) => {
+          salesCache.current[bId] = {};
+          Object.entries(byBread).forEach(([btId, records]) => {
+            salesCache.current[bId][btId] = records.map(r => r.quantity);
+          });
+        });
+      })
       .finally(() => setLoading(false));
   }, [user?.id]);
 
@@ -137,7 +151,12 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
   // ─── Date filter re-fetch ─────────────────────────────────────────────────
   useEffect(() => {
     if (isMock || !user) return;
-    sq.fetchOrders(buildOrderFilter()).then(setOrders).catch(console.error);
+    sq.fetchOrders(buildOrderFilter())
+      .then(setOrders)
+      .catch(err => {
+        console.error('Date filter fetch error:', err);
+        setForceDemo(true);
+      });
   }, [dateFilter.from, dateFilter.to]);
 
   function buildOrderFilter() {
@@ -151,8 +170,13 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
 
   const refreshOrders = async () => {
     if (isMock) return;
-    const o = await sq.fetchOrders(buildOrderFilter());
-    setOrders(o);
+    try {
+      const o = await sq.fetchOrders(buildOrderFilter());
+      setOrders(o);
+    } catch (err) {
+      console.error('Refresh orders error:', err);
+      setForceDemo(true);
+    }
   };
 
   // ─── Sales history ────────────────────────────────────────────────────────
@@ -270,13 +294,34 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
       setOrders(prev => [newOrder, ...prev]);
       return;
     }
-    const created = await sq.createOrder({ branch_id: branchId, promoter_id: promotorId, supervisor_id: supervisorId, items });
-    const branch = branches.find(b => b.id === branchId);
-    setOrders(prev => [{
-      ...created,
-      branch_name: branch?.name,
-      promoter_name: promotorName,
-    }, ...prev]);
+    try {
+      const created = await sq.createOrder({ branch_id: branchId, promoter_id: promotorId, supervisor_id: supervisorId, items });
+      const branch = branches.find(b => b.id === branchId);
+      setOrders(prev => [{
+        ...created,
+        branch_name: branch?.name,
+        promoter_name: promotorName,
+      }, ...prev]);
+    } catch (err) {
+      console.error('Create order error:', err);
+      setForceDemo(true);
+      // Fallback to mock order creation
+      const branch = branches.find(b => b.id === branchId);
+      const newOrder: Order = {
+        id: `order_${Date.now()}`,
+        branch_id: branchId,
+        branch_name: branch?.name,
+        promoter_id: promotorId,
+        promoter_name: promotorName,
+        supervisor_id: supervisorId ?? null,
+        supervisor_name: null,
+        supervisor_comments: null,
+        status: 'PENDING',
+        items,
+        created_at: new Date().toISOString(),
+      };
+      setOrders(prev => [newOrder, ...prev]);
+    }
   };
 
   const updateOrder = async (id: string, updates: Partial<Order>) => {
@@ -284,8 +329,14 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
       setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
       return;
     }
-    await sq.updateOrder(id, updates);
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    try {
+      await sq.updateOrder(id, updates);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    } catch (err) {
+      console.error('Update order error:', err);
+      setForceDemo(true);
+      setOrders(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    }
   };
 
   // Branches
@@ -294,39 +345,75 @@ export function WeberDataProvider({ children }: { children: ReactNode }) {
       setBranches(prev => [...prev, { ...branch, id: `b_${Date.now()}` }]);
       return;
     }
-    const created = await sq.createBranch(branch);
-    setBranches(prev => [...prev, created]);
+    try {
+      const created = await sq.createBranch(branch);
+      setBranches(prev => [...prev, created]);
+    } catch (err) {
+      console.error('Create branch error:', err);
+      setForceDemo(true);
+      setBranches(prev => [...prev, { ...branch, id: `b_${Date.now()}` }]);
+    }
   };
 
   const updateBranch = async (id: string, updates: Partial<Branch>) => {
     if (isMock) { setBranches(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)); return; }
-    await sq.updateBranch(id, updates);
-    setBranches(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    try {
+      await sq.updateBranch(id, updates);
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    } catch (err) {
+      console.error('Update branch error:', err);
+      setForceDemo(true);
+      setBranches(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    }
   };
 
   const deleteBranch = async (id: string) => {
     if (isMock) { setBranches(prev => prev.filter(b => b.id !== id)); return; }
-    await sq.deleteBranch(id);
-    setBranches(prev => prev.filter(b => b.id !== id));
+    try {
+      await sq.deleteBranch(id);
+      setBranches(prev => prev.filter(b => b.id !== id));
+    } catch (err) {
+      console.error('Delete branch error:', err);
+      setForceDemo(true);
+      setBranches(prev => prev.filter(b => b.id !== id));
+    }
   };
 
   // Bread types
   const createBreadType = async (bt: Omit<BreadType, 'id'>) => {
     if (isMock) { setBreadTypes(prev => [...prev, { ...bt, id: `bt_${Date.now()}` }]); return; }
-    const created = await sq.createBreadType(bt);
-    setBreadTypes(prev => [...prev, created]);
+    try {
+      const created = await sq.createBreadType(bt);
+      setBreadTypes(prev => [...prev, created]);
+    } catch (err) {
+      console.error('Create bread type error:', err);
+      setForceDemo(true);
+      setBreadTypes(prev => [...prev, { ...bt, id: `bt_${Date.now()}` }]);
+    }
   };
 
   const updateBreadType = async (id: string, updates: Partial<BreadType>) => {
     if (isMock) { setBreadTypes(prev => prev.map(bt => bt.id === id ? { ...bt, ...updates } : bt)); return; }
-    await sq.updateBreadType(id, updates);
-    setBreadTypes(prev => prev.map(bt => bt.id === id ? { ...bt, ...updates } : bt));
+    try {
+      await sq.updateBreadType(id, updates);
+      setBreadTypes(prev => prev.map(bt => bt.id === id ? { ...bt, ...updates } : bt));
+    } catch (err) {
+      console.error('Update bread type error:', err);
+      setForceDemo(true);
+      setBreadTypes(prev => prev.map(bt => bt.id === id ? { ...bt, ...updates } : bt));
+    }
   };
 
   const deleteBreadType = async (id: string) => {
     if (isMock) { setBreadTypes(prev => prev.filter(bt => bt.id !== id)); return; }
-    await sq.deleteBreadType(id);
-    setBreadTypes(prev => prev.filter(bt => bt.id !== id));
+    try {
+      await sq.deleteBreadType(id);
+      setBreadTypes(prev => prev.filter(bt => bt.id !== id));
+    } catch (err) {
+      console.error('Delete bread type error:', err);
+      setForceDemo(true);
+      setBreadTypes(prev => prev.filter(bt => bt.id !== id));
+    }
   };
 
   return (

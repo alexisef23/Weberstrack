@@ -10,18 +10,18 @@
 
 @layer base {
   :root {
-    /* Brand - Weber's Red & Navy Blue */
-    --brand-50:  #fef5f5;
-    --brand-100: #fedede;
-    --brand-200: #fbbling;
-    --brand-300: #f56b6e;
-    --brand-400: #e84d50;
-    --brand-500: #c1272d;
-    --brand-600: #a91f24;
-    --brand-700: #8b191d;
-    --brand-800: #6b1317;
-    --brand-900: #4d0d0f;
-    --brand-950: #2d0607;
+    /* Brand - Weber's Blue & Navy Blue */
+    --brand-50:  #f0f5fb;
+    --brand-100: #d4e4f5;
+    --brand-200: #b9e1fd;
+    --brand-300: #7cc9fb;
+    --brand-400: #36adf6;
+    --brand-500: #0c90e0;
+    --brand-600: #0072be;
+    --brand-700: #015a99;
+    --brand-800: #003d7a;
+    --brand-900: #002d5c;
+    --brand-950: #001a38;
 
     /* Navy Blue Secondary */
     --navy-50:   #f0f5fb;
@@ -90,9 +90,9 @@
     --border:   #3a3a3a;
     --border-2: #4a4a4a;
 
-    --primary:       #ff6b6f;
-    --primary-hover: #f56b6e;
-    --primary-light: #fdbd3d;
+    --primary:       #36adf6;
+    --primary-hover: #7cc9fb;
+    --primary-light: #b9e1fd;
     --accent:        var(--gold-400);
 
     --shadow-sm: 0 1px 3px rgba(0,0,0,.5);
@@ -130,7 +130,7 @@
   }
 
   ::selection {
-    background: rgba(193, 39, 45, .2);
+    background: rgba(12, 144, 224, .2);
     color: var(--text);
   }
 

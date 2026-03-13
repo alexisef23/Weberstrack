@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useWeberData } from '../../context/WeberDataContext';
 import { Button, Card, StatusBadge } from '../ui/core';
-import { ChatbotFAB } from '../chatbot/ChatbotFAB';
 import { LiveMap } from '../maps/LiveMap';
 import { OrderApprovalModal } from './OrderApprovalModal';
 import { MetricsPanel } from './MetricsPanel';
@@ -190,8 +189,6 @@ export function SupervisorDashboard() {
         {/* Metrics tab */}
         {activeTab === 'metrics' && <MetricsPanel orders={teamOrders} />}
       </main>
-
-      <ChatbotFAB orders={teamOrders} />
     </div>
   );
 }

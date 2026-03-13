@@ -11,10 +11,10 @@ const ROLE_ICONS = {
 };
 
 const ROLE_GRADIENTS: Record<string, string> = {
-  PROMOTOR:   'from-[#c1272d] to-[#e84d50]',
-  SUPERVISOR: 'from-[#003d7a] to-[#1e5a96]',
+  PROMOTOR:   'from-[#0c90e0] to-[#36adf6]',
+  SUPERVISOR: 'from-[#003d7a] to-[#0c90e0]',
   SUPERADMIN: 'from-[#e8b930] to-[#f5d547]',
-  AUDITOR:    'from-[#2d0d0f] to-[#6b1317]',
+  AUDITOR:    'from-[#001a38] to-[#003d7a]',
 };
 
 export function LoginScreen() {
@@ -23,7 +23,7 @@ export function LoginScreen() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-5 relative overflow-hidden">
       {/* Decorative blobs */}
-      <div className="absolute top-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-20" style={{ background: '#c1272d', transform: 'translate(-50%, -50%)' }} />
+      <div className="absolute top-0 left-0 w-96 h-96 rounded-full blur-3xl opacity-20" style={{ background: '#0c90e0', transform: 'translate(-50%, -50%)' }} />
       <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full blur-3xl opacity-15" style={{ background: '#e8b930', transform: 'translate(40%, 40%)' }} />
 
       <div className="w-full max-w-md relative z-10">
@@ -40,7 +40,7 @@ export function LoginScreen() {
                 if (fallback) fallback.style.display='flex';
               }} 
             />
-            <div className="hidden items-center justify-center w-20 h-20 rounded-2xl" style={{ background: 'linear-gradient(135deg, #8b191d, #c1272d)' }}>
+            <div className="hidden items-center justify-center w-20 h-20 rounded-2xl" style={{ background: 'linear-gradient(135deg, #003d7a, #0c90e0)' }}>
               <span className="text-white font-black text-3xl">W</span>
             </div>
           </div>

@@ -5,8 +5,6 @@ import { BranchesManager } from './BranchesManager';
 import { BreadTypesManager } from './BreadTypesManager';
 import { UsersManager } from './UsersManager';
 import { SuperAdminResumenPanel } from './SuperAdminResumenPanel';
-import { ChatbotFAB } from '../chatbot/ChatbotFAB';
-import { useWeberData } from '../../context/WeberDataContext';
 import { LogOut, Users, Building2, Package, BarChart3 } from 'lucide-react';
 
 type Tab = 'resumen' | 'users' | 'branches' | 'products';
@@ -20,7 +18,6 @@ const TABS = [
 
 export function SuperAdminDashboard() {
   const { user, logout } = useAuth();
-  const { orders } = useWeberData();
   const [activeTab, setActiveTab] = useState<Tab>('resumen');
 
   return (
@@ -52,8 +49,6 @@ export function SuperAdminDashboard() {
           </div>
         )}
       </main>
-
-      <ChatbotFAB orders={orders} />
     </div>
   );
 }
